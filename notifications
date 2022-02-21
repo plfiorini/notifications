@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import datetime
 import socket
 import threading
 import signal
@@ -7,13 +8,20 @@ import sys
 import logging
 import time
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from server import Customer, Notification, NotificationCounter, process_notification
+
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
 
 class NotificationsServer:
-    def __init__(self, host, port):
+    def __init__(self, host, port, db_url):
         # Salvo i parametri per dopo
         self.host = host
         self.port = port
+        self.db_url = db_url
 
         # Server
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,6 +35,11 @@ class NotificationsServer:
         self.message_thread = threading.Thread(target=self.handle_messages)
         self.message_thread.start()
 
+        # Connessione al database
+        logging.info(f'Connessione al database: {self.db_url}')
+        self.engine = create_engine(self.db_url)
+        self.session_factory = sessionmaker(bind=self.engine)
+
     def start(self):
         # Ricezione dati dai client, ogni connessione in un thread
         # per poter accettare varie connessioni contemporaneamente
@@ -38,12 +51,11 @@ class NotificationsServer:
             client_thread.start()
 
     def stop(self):
-        self.message_queue = []
         self.running = False
+        self.server_socket.close()
         for client_socket in self.clients:
             client_socket.close()
         self.message_thread.join()
-        self.server_socket.close()
 
     def handle_client(self, client_socket):
         while self.running:
@@ -71,25 +83,34 @@ class NotificationsServer:
         while self.running:
             if self.message_queue:
                 with self.lock:
+                    # Salvo in locale la coda per gestirmela con calma
                     messages = self.message_queue
                     self.message_queue = []
+                # Scrivo sul database la notifica e incremento il contatore giornaliero
+                session = self.session_factory()
                 for message in messages:
-                    logging.debug(f'Salvo messaggio: {message}')
+                    with session.begin():
+                        logging.info(f'Salvo messaggio: {message}')
+                        process_notification(message, session)
+                session.close()
             else:
                 # Meglio evitare di consumare troppa CPU in questo loop
                 time.sleep(0.01)
+
 
 def signal_handler(sig, frame):
     logging.info(f'Chiusura del server delle notifiche con segnale {sig}')
     notifications_server.stop()
     sys.exit(0)
 
+
 def main():
     global notifications_server
-    notifications_server = NotificationsServer('localhost', 30123)
+    notifications_server = NotificationsServer('localhost', 30123, 'sqlite:///notifications.db')
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     notifications_server.start()
+
 
 if __name__ == '__main__':
     main()
