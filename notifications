@@ -5,6 +5,7 @@ import threading
 import signal
 import sys
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 
@@ -21,6 +22,10 @@ class NotificationsServer:
         self.server_socket.listen()
         self.clients = []
         self.running = True
+        self.lock = threading.Lock()
+        self.message_queue = []
+        self.message_thread = threading.Thread(target=self.handle_messages)
+        self.message_thread.start()
 
     def start(self):
         # Ricezione dati dai client, ogni connessione in un thread
@@ -33,9 +38,11 @@ class NotificationsServer:
             client_thread.start()
 
     def stop(self):
+        self.message_queue = []
         self.running = False
         for client_socket in self.clients:
             client_socket.close()
+        self.message_thread.join()
         self.server_socket.close()
 
     def handle_client(self, client_socket):
@@ -45,6 +52,8 @@ class NotificationsServer:
                 if data:
                     message = data.decode('utf-8')
                     logging.info(f'Notifica ricevuta: {message}')
+                    with self.lock:
+                        self.message_queue.append(message)
                     client_socket.send(bytes('OK', 'utf-8'))
                 else:
                     self.remove_client(client_socket)
@@ -57,6 +66,18 @@ class NotificationsServer:
             client_socket.close()
             addr = client_socket.getsockname()
             logging.info(f'Disconnessione client {addr}')
+
+    def handle_messages(self):
+        while self.running:
+            if self.message_queue:
+                with self.lock:
+                    messages = self.message_queue
+                    self.message_queue = []
+                for message in messages:
+                    logging.debug(f'Salvo messaggio: {message}')
+            else:
+                # Meglio evitare di consumare troppa CPU in questo loop
+                time.sleep(0.01)
 
 def signal_handler(sig, frame):
     logging.info(f'Chiusura del server delle notifiche con segnale {sig}')
