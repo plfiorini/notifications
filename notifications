@@ -1,7 +1,74 @@
 #!/usr/bin/env python3
 
+import socket
+import threading
+import signal
+import sys
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
+
+class NotificationsServer:
+    def __init__(self, host, port):
+        # Salvo i parametri per dopo
+        self.host = host
+        self.port = port
+
+        # Server
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen()
+        self.clients = []
+        self.running = True
+
+    def start(self):
+        # Ricezione dati dai client, ogni connessione in un thread
+        # per poter accettare varie connessioni contemporaneamente
+        while self.running:
+            client_socket, client_address = self.server_socket.accept()
+            self.clients.append(client_socket)
+            logging.info(f'Nuovo client {client_address}')
+            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
+            client_thread.start()
+
+    def stop(self):
+        self.running = False
+        for client_socket in self.clients:
+            client_socket.close()
+        self.server_socket.close()
+
+    def handle_client(self, client_socket):
+        while self.running:
+            try:
+                data = client_socket.recv(300)
+                if data:
+                    message = data.decode('utf-8')
+                    logging.info(f'Notifica ricevuta: {message}')
+                    client_socket.send(bytes('OK', 'utf-8'))
+                else:
+                    self.remove_client(client_socket)
+            except:
+                self.remove_client(client_socket)
+
+    def remove_client(self, client_socket):
+        if client_socket in self.clients:
+            self.clients.remove(client_socket)
+            client_socket.close()
+            addr = client_socket.getsockname()
+            logging.info(f'Disconnessione client {addr}')
+
+def signal_handler(sig, frame):
+    logging.info(f'Chiusura del server delle notifiche con segnale {sig}')
+    notifications_server.stop()
+    sys.exit(0)
+
 def main():
-    pass
+    global notifications_server
+    notifications_server = NotificationsServer('localhost', 30123)
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    notifications_server.start()
 
 if __name__ == '__main__':
     main()

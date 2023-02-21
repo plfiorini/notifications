@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+import socket
+import logging
+
+
+def send_notifications(port):
+    client_socket = socket.socket()
+    client_socket.connect(('localhost', port))
+
+    while True:
+        try:
+            notification_text = input('Notifica> ')
+        except EOFError:
+            break
+        if notification_text.lower().strip() == 'quit':
+            break
+
+        client_socket.send(notification_text.encode())
+        data = client_socket.recv(1024).decode()
+        logging.info(f'Risposta: {data}')
+
+    client_socket.close()
+
+
+if __name__ == '__main__':
+    send_notifications(30123)
