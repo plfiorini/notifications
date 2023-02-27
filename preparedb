@@ -7,29 +7,31 @@ from sqlalchemy.orm import sessionmaker
 
 from server import Base, Customer
 
+
 def main(db_url):
     engine = create_engine(db_url)
     session_factory = sessionmaker(bind=engine)
     Base.metadata.create_all(engine)
 
     customers = [
-        Customer(name='Yvonne Nash', notification_label='Los Angeles'),
-        Customer(name='Justin Wright', notification_label='Jeddah'),
-        Customer(name='Thomas Hamilton', notification_label='Bangkok'),
-        Customer(name='Lily Lee', notification_label='Casablanca'),
-        Customer(name='Angela Davies', notification_label='Addis Ababa'),
-        Customer(name='Dan Skinner', notification_label='Lahore'),
-        Customer(name='Dylan Butler', notification_label='Kinshasa'),
-        Customer(name='Carl Reid', notification_label='Dhaka'),
-        Customer(name='Jasmine Rampling', notification_label='Karachi'),
-        Customer(name='Amelia Ross', notification_label='Abidjan'),
+        Customer(name="Yvonne Nash", notification_label="Los Angeles"),
+        Customer(name="Justin Wright", notification_label="Jeddah"),
+        Customer(name="Thomas Hamilton", notification_label="Bangkok"),
+        Customer(name="Lily Lee", notification_label="Casablanca"),
+        Customer(name="Angela Davies", notification_label="Addis Ababa"),
+        Customer(name="Dan Skinner", notification_label="Lahore"),
+        Customer(name="Dylan Butler", notification_label="Kinshasa"),
+        Customer(name="Carl Reid", notification_label="Dhaka"),
+        Customer(name="Jasmine Rampling", notification_label="Karachi"),
+        Customer(name="Amelia Ross", notification_label="Abidjan"),
     ]
     session = session_factory()
     session.add_all(customers)
     session.commit()
 
-if __name__ == '__main__':
-    db_filename = 'notifications.db'
+
+if __name__ == "__main__":
+    db_filename = "notifications.db"
     if os.path.exists(db_filename):
         os.unlink(db_filename)
-    main(f'sqlite:///{db_filename}')
+    main(f"sqlite:///{db_filename}")
