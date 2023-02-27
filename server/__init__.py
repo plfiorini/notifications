@@ -1,5 +1,6 @@
 import datetime
 import logging
+from typing import Optional
 
 from sqlalchemy import Column, Integer, String, ForeignKey, Date
 from sqlalchemy.orm import relationship, declarative_base
@@ -49,7 +50,7 @@ class NotificationCounter(Base):
     customer = relationship("Customer")
 
 
-def find_customer_id(session, notification_text):
+def find_customer_id(session, notification_text: str) -> Optional[int]:
     logging.info(f"Ricerca del cliente per la notifica '{notification_text}'")
     notification_labels = [c.notification_label for c in session.query(Customer).all()]
     labels = [l for l in notification_labels if l.lower() in notification_text.lower()]
@@ -73,7 +74,7 @@ def find_customer_id(session, notification_text):
     return id_customer
 
 
-def process_notification(notification_text, session):
+def process_notification(notification_text: str, session):
     # Cerco l'ID cliente in base alla/alle label eventualmente presenti
     # nel messaggio
     id_customer = find_customer_id(session, notification_text)

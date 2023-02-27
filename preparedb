@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from server import Base, Customer
 
 
-def main(db_url):
+def main(db_url: str):
     engine = create_engine(db_url)
     session_factory = sessionmaker(bind=engine)
     Base.metadata.create_all(engine)
